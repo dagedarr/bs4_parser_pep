@@ -8,6 +8,24 @@ from constants import BASE_DIR, DATETIME_FORMAT
 
 
 def control_output(results, cli_args):
+    """
+    Контролирует способ вывода результатов парсера на основе
+    переданных аргументов командной строки.
+
+    Аргументы:
+        results (list): Список результатов, который будет выведен или сохранен.
+        cli_args (Namespace): Объект Namespace с
+            переданными аргументами командной строки.
+
+    Возвращает:
+        None
+
+    Примечание:
+        Вывод результатов может быть произведен в трех различных форматах:
+        1. "pretty" - вывод в виде красиво оформленной таблицы.
+        2. "file" - сохранение результатов в CSV-файл.
+        3. По умолчанию - вывод в виде простого текста (строки через пробел).
+    """
     output = cli_args.output
     if output == 'pretty':
         pretty_output(results)
@@ -18,11 +36,29 @@ def control_output(results, cli_args):
 
 
 def default_output(results):
+    """
+    Выводит результаты в виде простого текста (строки через пробел).
+
+    Аргументы:
+        results (list): Список результатов для вывода.
+
+    Возвращает:
+        None
+    """
     for row in results:
         print(*row)
 
 
 def pretty_output(results):
+    """
+    Выводит результаты в виде красиво оформленной таблицы.
+
+    Аргументы:
+        results (list): Список результатов для вывода.
+
+    Возвращает:
+        None
+    """
     table = PrettyTable()
     table.field_names = results[0]
     table.align = 'l'
@@ -31,6 +67,20 @@ def pretty_output(results):
 
 
 def file_output(results, cli_args):
+    """
+    Сохраняет результаты в CSV-файл.
+
+    Аргументы:
+        results (list): Список результатов для сохранения.
+        cli_args (Namespace): Объект Namespace с переданными аргументами
+                              командной строки.
+
+    Возвращает:
+        None
+
+    Примечание:
+        Файл с результатами сохраняется в формате CSV (разделитель - запятая).
+    """
     results_dir = BASE_DIR / 'results'
     results_dir.mkdir(exist_ok=True)
 

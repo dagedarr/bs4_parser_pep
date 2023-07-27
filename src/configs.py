@@ -9,6 +9,16 @@ DT_FORMAT = '%d.%m.%Y %H:%M:%S'
 
 
 def configure_argument_parser(available_modes):
+    """
+    Конфигурирует аргументы командной строки для парсера документации Python.
+
+    Аргументы:
+        available_modes (list): Список доступных режимов работы парсера.
+
+    Возвращает:
+        ArgumentParser: Объект ArgumentParser с настроенными аргументами
+                        командной строки.
+    """
     parser = argparse.ArgumentParser(description='Парсер документации Python')
     parser.add_argument(
         'mode',
@@ -32,6 +42,22 @@ def configure_argument_parser(available_modes):
 
 
 def configure_logging():
+    """
+    Конфигурирует логирование для парсера документации Python.
+
+    Аргументы:
+        None
+
+    Возвращает:
+        None
+
+    Примечание:
+        Логирование производится в файл parser.log, который размещается
+        в папке logs в корневой директории приложения. Также вывод логов
+        производится на консоль. Для логирования используется формат
+        LOG_FORMAT и формат даты DT_FORMAT. Лог-файлы вращаются с помощью
+        RotatingFileHandler, чтобы управлять их размером.
+    """
     log_dir = BASE_DIR / 'logs'
     log_dir.mkdir(exist_ok=True)
     log_file = log_dir / 'parser.log'

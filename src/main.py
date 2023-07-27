@@ -1,6 +1,6 @@
-# main.py
 import logging
 import re
+from collections import Counter
 from urllib.parse import urljoin
 
 import requests_cache
@@ -14,10 +14,32 @@ from utils import find_tag, get_response
 
 
 def whats_new(session):
+    """
+    Получает информацию о последних изменениях в
+    документации Python на странице "whatsnew/".
+
+    Аргументы:
+        session:  Объект CachedSession из библиотеки requests_cache,
+                  который используется для кэширования запросов.
+
+    Возвращает:
+        list: Список кортежей с информацией о
+              последних изменениях в документации Python.
+              Каждый кортеж содержит:
+              - Ссылку на статью (str).
+              - Заголовок (str).
+              - Редактор и автор (str).
+
+    Примечание:
+        Функция использует BeautifulSoup для парсинга HTML-кода страницы и
+        requests_cache для кэширования запросов, что позволяет уменьшить
+        нагрузку на сервер.
+        Если ответ на запрос отсутствует в кэше, он будет получен из интернета.
+    """
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
     response = get_response(session, whats_new_url)
     if response is None:
-        return ...
+        return None
 
     soup = BeautifulSoup(response.text, features='lxml')
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
@@ -44,9 +66,36 @@ def whats_new(session):
 
 
 def latest_versions(session):
+    """
+    Получает информацию о последних доступных версиях Python и
+    их статусах из главной страницы документации.
+
+    Аргументы:
+        session: Объект CachedSession из библиотеки requests_cache,
+                 который используется для кэширования запросов.
+
+    Возвращает:
+        list: Список кортежей с информацией о последних
+              доступных версиях Python и их статусах.
+              Каждый кортеж содержит:
+              - Ссылку на документацию (str).
+              - Версию Python (str).
+              - Статус версии (str).
+
+    Исключения:
+        Exception: Возникает, если не найдено
+                   содержание с ссылками на версии Python.
+
+    Примечание:
+        Функция использует BeautifulSoup и регулярные
+        выражения для парсинга HTML-кода страницы и
+        requests_cache для кэширования запросов, что
+        позволяет уменьшить нагрузку на сервер.
+        Если ответ на запрос отсутствует в кэше, он будет получен из интернета.
+    """
     response = get_response(session, MAIN_DOC_URL)
     if response is None:
-        return ...
+        return None
 
     soup = BeautifulSoup(response.text, 'lxml')
 
@@ -76,11 +125,26 @@ def latest_versions(session):
 
 
 def download(session):
+    """
+    Скачивает архив "pdf-a4.zip" с документацией Python
+    из страницы "download.html".
+
+    Аргументы:
+        session: Объект CachedSession из библиотеки requests_cache,
+                 который используется для кэширования запросов.
+
+    Примечание:
+        Функция использует BeautifulSoup и регулярные выражения
+        для парсинга HTML-кода страницы и
+        requests_cache для кэширования запросов, что позволяет
+        уменьшить нагрузку на сервер.
+        Если ответ на запрос отсутствует в кэше, он будет получен из интернета.
+    """
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
 
     response = get_response(session, downloads_url)
     if response is None:
-        return
+        return None
 
     soup = BeautifulSoup(response.text, 'lxml')
     main_tag = find_tag(soup, 'div', {'role': 'main'})
@@ -105,12 +169,12 @@ def download(session):
 
 
 def pep(session):
-    pep_status_counter = {k: 0 for k in EXPECTED_STATUS.values()}
+    pep_status_counter = Counter()
     results = [('Статус', 'Количество')]
 
     response = get_response(session, PEP_URL)
     if response is None:
-        return ...
+        return None
 
     soup = BeautifulSoup(response.text, 'lxml')
 
@@ -153,9 +217,15 @@ def pep(session):
 
                     # Извлекаем статус PEP из текста
                     page_status = table_text.split('Status:')[-1].split()[0]
+
+                    # ---------------------
+                    # не до конца понял как могу использовать defaultdict
+                    # если pep_status_counter уже Counter()
+                    # ---------------------
                     if page_status in section_status:
                         # Увеличиваем счетчик для конкретного статуса PEP
                         pep_status_counter[section_status] += 1
+
                     else:
                         # Выводим сообщение в журнал, если статус PEP
                         # не соответствует ожидаемому статусу раздела
@@ -163,11 +233,11 @@ def pep(session):
                             f'Статус в карточке "{full_href}" отображен как '
                             f'"{page_status}", что не соотносится '
                             f'с {section_status}')
+
             # Очищаем множество cached_href для следующего раздела
             cached_href.clear()
     # Добавляем значения счетчика статусов PEP в список результатов
-    for k, v in pep_status_counter.items():
-        results.append([k, v])
+    results.extend((', '.join(k), v) for k, v in pep_status_counter.items())
     return results
 
 
@@ -180,6 +250,21 @@ MODE_TO_FUNCTION = {
 
 
 def main():
+    """
+    Главная функция для запуска парсера документации Python.
+
+    Основные шаги:
+    1. Конфигурирует логирование.
+    2. Логирует момент запуска программы.
+    3. Парсит аргументы командной строки.
+    4. Логирует переданные аргументы командной строки.
+    5. Инициализирует сессию для запросов с возможностью кэширования.
+    6. Очищает кэш, если указан соответствующий аргумент командной строки.
+    7. Выбирает режим работы парсера на основе переданного аргумента.
+    8. Выполняет соответствующую функцию в зависимости от выбранного режима.
+    9. Контролирует вывод результатов и логирует результаты работы.
+    10. Логирует завершение работы парсера.
+    """
     # Запускаем функцию с конфигурацией логов.
     configure_logging()
     # Отмечаем в логах момент запуска программы.
