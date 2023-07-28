@@ -55,11 +55,6 @@ def find_tag(soup, tag, attrs=None):
     Исключения:
         ParserFindTagException: Возникает, если указанный тег не
                                 найден в объекте BeautifulSoup.
-
-    Примечание:
-        В случае, если тег не найден, будет записано сообщение в журнал с
-        информацией о стеке вызовов, и будет возбуждено
-        исключение ParserFindTagException.
     """
     searched_tag = soup.find(tag, attrs=(attrs or {}))
     if searched_tag is None:

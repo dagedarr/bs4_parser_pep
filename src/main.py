@@ -29,12 +29,6 @@ def whats_new(session):
               - Ссылку на статью (str).
               - Заголовок (str).
               - Редактор и автор (str).
-
-    Примечание:
-        Функция использует BeautifulSoup для парсинга HTML-кода страницы и
-        requests_cache для кэширования запросов, что позволяет уменьшить
-        нагрузку на сервер.
-        Если ответ на запрос отсутствует в кэше, он будет получен из интернета.
     """
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
     response = get_response(session, whats_new_url)
@@ -85,13 +79,6 @@ def latest_versions(session):
     Исключения:
         Exception: Возникает, если не найдено
                    содержание с ссылками на версии Python.
-
-    Примечание:
-        Функция использует BeautifulSoup и регулярные
-        выражения для парсинга HTML-кода страницы и
-        requests_cache для кэширования запросов, что
-        позволяет уменьшить нагрузку на сервер.
-        Если ответ на запрос отсутствует в кэше, он будет получен из интернета.
     """
     response = get_response(session, MAIN_DOC_URL)
     if response is None:
@@ -132,13 +119,6 @@ def download(session):
     Аргументы:
         session: Объект CachedSession из библиотеки requests_cache,
                  который используется для кэширования запросов.
-
-    Примечание:
-        Функция использует BeautifulSoup и регулярные выражения
-        для парсинга HTML-кода страницы и
-        requests_cache для кэширования запросов, что позволяет
-        уменьшить нагрузку на сервер.
-        Если ответ на запрос отсутствует в кэше, он будет получен из интернета.
     """
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
 
@@ -161,14 +141,24 @@ def download(session):
 
     response = session.get(archive_url)
 
-    # В бинарном режиме открывается файл на запись по указанному пути.
     with open(archive_path, 'wb') as file:
-        # Полученный ответ записывается в файл.
         file.write(response.content)
     logging.info(f'Архив был загружен и сохранён: {archive_path}')
 
 
 def pep(session):
+    """
+    Данная функция выполняет парсинг страницы PEP и считает
+    количество PEP с разными статусами.
+
+    Args:
+        session: Объект CachedSession из библиотеки requests_cache,
+                 который используется для кэширования запросов.
+
+    Returns:
+        list: Список кортежей с результатами статистики. Каждый кортеж содержит
+            статус PEP и соответствующее количество.
+    """
     pep_status_counter = Counter()
     results = [('Статус', 'Количество')]
 
@@ -181,7 +171,6 @@ def pep(session):
     # Находим основной раздел, содержащий все PEP
     big_section = find_tag(soup, 'section', attrs={'id': 'index-by-category'})
 
-    # Получаем все разделы внутри основного раздела
     sections = big_section.find_all('section')
 
     for section in tqdm(sections):
@@ -192,51 +181,30 @@ def pep(session):
         # чтобы избежать обработки дубликатов
         cached_href = set()
 
-        if table:
-            # Проходим по каждой ячейке таблицы (td) в таблице раздела
-            for td in tqdm(table.find_all('td')):
-                if td.abbr:
-                    # Извлекаем сокращение статуса PEP и
-                    # сопоставляем его с соответствующим полным статусом
-                    section_status = td.abbr.text[1:]
-                    section_status = EXPECTED_STATUS[section_status]
+        if not table:
+            continue
 
-                if td.a and td.a['href'] not in cached_href:
-                    # Получаем атрибут href из тега a и
-                    # добавляем его в множество cached_href
-                    href = td.a['href']
-                    cached_href.add(href)
-                    full_href = urljoin(PEP_URL, href)
-
-                    response = get_response(session, full_href)
-                    soup = BeautifulSoup(response.text, 'lxml')
-
-                    # Извлекаем текстовое содержимое тега 'dl',
-                    # который содержит статус PEP
-                    table_text = find_tag(soup, 'dl').text
-
-                    # Извлекаем статус PEP из текста
-                    page_status = table_text.split('Status:')[-1].split()[0]
-
-                    # ---------------------
-                    # не до конца понял как могу использовать defaultdict
-                    # если pep_status_counter уже Counter()
-                    # ---------------------
-                    if page_status in section_status:
-                        # Увеличиваем счетчик для конкретного статуса PEP
-                        pep_status_counter[section_status] += 1
-
-                    else:
-                        # Выводим сообщение в журнал, если статус PEP
-                        # не соответствует ожидаемому статусу раздела
-                        logging.info(
-                            f'Статус в карточке "{full_href}" отображен как '
-                            f'"{page_status}", что не соотносится '
-                            f'с {section_status}')
-
-            # Очищаем множество cached_href для следующего раздела
-            cached_href.clear()
-    # Добавляем значения счетчика статусов PEP в список результатов
+        for td in tqdm(table.find_all('td')):
+            if td.abbr:
+                section_status = td.abbr.text[1:]
+                section_status = EXPECTED_STATUS[section_status]
+            if td.a and td.a['href'] not in cached_href:
+                href = td.a['href']
+                cached_href.add(href)
+                full_href = urljoin(PEP_URL, href)
+                response = get_response(session, full_href)
+                soup = BeautifulSoup(response.text, 'lxml')
+                table_text = find_tag(soup, 'dl').text
+                page_status = table_text.split('Status:')[-1].split()[0]
+                if page_status in section_status:
+                    pep_status_counter[section_status] += 1
+                else:
+                    logging.info(
+                        f'Статус в карточке "{full_href}" отображен как '
+                        f'"{page_status}", что не соотносится '
+                        f'с {section_status}')
+        cached_href.clear()
+        print(pep_status_counter.items())
     results.extend((', '.join(k), v) for k, v in pep_status_counter.items())
     return results
 
@@ -252,27 +220,12 @@ MODE_TO_FUNCTION = {
 def main():
     """
     Главная функция для запуска парсера документации Python.
-
-    Основные шаги:
-    1. Конфигурирует логирование.
-    2. Логирует момент запуска программы.
-    3. Парсит аргументы командной строки.
-    4. Логирует переданные аргументы командной строки.
-    5. Инициализирует сессию для запросов с возможностью кэширования.
-    6. Очищает кэш, если указан соответствующий аргумент командной строки.
-    7. Выбирает режим работы парсера на основе переданного аргумента.
-    8. Выполняет соответствующую функцию в зависимости от выбранного режима.
-    9. Контролирует вывод результатов и логирует результаты работы.
-    10. Логирует завершение работы парсера.
     """
-    # Запускаем функцию с конфигурацией логов.
     configure_logging()
-    # Отмечаем в логах момент запуска программы.
     logging.info('Парсер запущен!')
 
     arg_parser = configure_argument_parser(MODE_TO_FUNCTION.keys())
     args = arg_parser.parse_args()
-    # Логируем переданные аргументы командной строки.
     logging.info(f'Аргументы командной строки: {args}')
 
     session = requests_cache.CachedSession()
@@ -284,7 +237,6 @@ def main():
 
     if results is not None:
         control_output(results, args)
-    # Логируем завершение работы парсера.
     logging.info('Парсер завершил работу.')
 
 
