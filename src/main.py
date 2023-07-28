@@ -204,7 +204,6 @@ def pep(session):
                         f'"{page_status}", что не соотносится '
                         f'с {section_status}')
         cached_href.clear()
-        print(pep_status_counter.items())
     results.extend((', '.join(k), v) for k, v in pep_status_counter.items())
     return results
 
